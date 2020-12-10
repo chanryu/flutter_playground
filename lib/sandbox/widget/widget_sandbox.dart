@@ -8,55 +8,53 @@ import 'pages/modal_route_page.dart';
 import 'pages/sliver_app_bar_page.dart';
 import 'pages/snack_bar_page.dart';
 
-class _Page {
+class _DemoPageRoute extends MaterialPageRoute<void> {
   final String title;
   final String subtitle;
-  final String routeName;
-  final WidgetBuilder pageBuilder;
 
-  const _Page({
+  _DemoPageRoute({
     @required this.title,
     this.subtitle,
-    @required this.routeName,
-    @required this.pageBuilder,
-  });
+    @required WidgetBuilder pageBuilder,
+  }) : super(
+          builder: pageBuilder,
+          settings: RouteSettings(
+            arguments: DemoPageArguments(title: title),
+          ),
+        );
 }
 
-final List<_Page> _kPages = [
-  _Page(
+final List<_DemoPageRoute> _kDemoPageRoutes = [
+  _DemoPageRoute(
     title: 'AnimatedIcon',
     subtitle: 'AnimatedIcons, GridView, Card, etc.',
-    routeName: '/AnimatedIconPage',
     pageBuilder: (context) => AnimatedIconPage(),
   ),
-  _Page(
+  _DemoPageRoute(
     title: 'SliverAppBar',
     subtitle: 'CustomScrollView, SliverAppBar, SliverFillRemaining, etc.',
-    routeName: '/SliverAppBar',
     pageBuilder: (context) => SliverAppBarPage(),
   ),
-  _Page(
+  _DemoPageRoute(
     title: 'SnackBar',
     subtitle: 'SnackBar, Builder, ...',
-    routeName: '/SnackBarPage',
     pageBuilder: (context) => SnackBarPage(),
   ),
-  _Page(
+  _DemoPageRoute(
     title: 'DraggableScrollableSheet',
-    routeName: '/DraggableScrollableSheet',
     pageBuilder: (context) => DraggableScrollableSheetPage(),
   ),
-  _Page(
+  _DemoPageRoute(
     title: 'Hero',
-    routeName: '/HeroPage',
     pageBuilder: (context) => HeroPage(),
   ),
-  _Page(
+  _DemoPageRoute(
     title: 'ModalRoute',
-    routeName: '/ModalRoute',
     pageBuilder: (context) => ModalRoutePage(),
   ),
 ];
+
+Text _stringToText(String str) => str == null ? null : Text(str);
 
 class WidgetSandbox extends StatelessWidget {
   @override
@@ -67,23 +65,15 @@ class WidgetSandbox extends StatelessWidget {
       ),
       body: Container(
         child: ListView.separated(
-          itemCount: _kPages.length,
+          itemCount: _kDemoPageRoutes.length,
           itemBuilder: (_, index) {
-            final page = _kPages[index];
+            final pageRoute = _kDemoPageRoutes[index];
             return ListTile(
-                title: Text(page.title),
-                subtitle: page.subtitle != null ? Text(page.subtitle) : null,
+                title: Text(pageRoute.title),
+                subtitle: _stringToText(pageRoute.subtitle),
                 trailing: Icon(Icons.navigate_next_rounded),
                 onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: page.pageBuilder,
-                      settings: RouteSettings(
-                        arguments: DemoPageArguments(title: page.title),
-                      ),
-                    ),
-                  );
+                  Navigator.push(context, pageRoute);
                 });
           },
           separatorBuilder: (_, __) => Divider(),
