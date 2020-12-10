@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import 'sandbox/firebase/firebase_sandbox.dart';
+import 'sandbox/widget/widget_sandbox.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,6 +27,11 @@ final List<_PageRouteContext> _kPageRouteContexts = [
     title: 'Firebase Sandbox',
     routeName: '/FirebaseSandbox',
     pageBuilder: (_) => FirebaseSandbox(),
+  ),
+  _PageRouteContext(
+    title: 'Widget Sandbox',
+    routeName: '/WidgetSandbox',
+    pageBuilder: (_) => WidgetSandbox(),
   ),
 ];
 
