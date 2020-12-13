@@ -1,20 +1,87 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-class FirebaseSandbox extends StatelessWidget {
+import 'sign_in_form.dart';
+
+class FirebaseSandbox extends StatefulWidget {
+  @override
+  _FirebaseSandboxState createState() => _FirebaseSandboxState();
+}
+
+class _FirebaseSandboxState extends State<FirebaseSandbox> {
+  _FirebaseSandboxState() {
+    final authStream = FirebaseAuth.instance.authStateChanges();
+    _authSubscription = authStream.listen((User user) {
+      setState(() {
+        _currentUser = user;
+      });
+    });
+  }
+
+  StreamSubscription<User> _authSubscription;
+  User _currentUser;
+
+  bool isUserLoggedIn() {
+    return _currentUser != null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<_StateChangeNotifier>(
-      create: (_) => _StateChangeNotifier(),
-      child: Scaffold(
+    return MultiProvider(
+      providers: [
+        Provider<User>.value(
+          value: _currentUser,
+        ),
+        ChangeNotifierProvider<_SortChangeNotifier>(
+          create: (_) => _SortChangeNotifier(),
+        ),
+      ],
+      child: _buildScaffold(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
+
+  Widget _buildScaffold() {
+    final appBarTitle = Text('Firebase Sandbox');
+
+    if (isUserLoggedIn()) {
+      return Scaffold(
         appBar: AppBar(
-          title: Text('Firebase Sandbox'),
-          actions: [
-            _SortButton(),
-          ],
+          title: appBarTitle,
+          actions: [_SortButton()],
         ),
         body: ProgrammingLanguageList(),
+        floatingActionButton: FloatingActionButton(
+          child: Icon(Icons.logout),
+          onPressed: () {
+            FirebaseAuth.instance.signOut();
+          },
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: appBarTitle),
+      body: Container(
+        margin: EdgeInsets.all(16),
+        alignment: Alignment.center,
+        child: SignInForm(
+          onSubmit: (email, password) {
+            FirebaseAuth.instance.signInWithEmailAndPassword(
+              email: email,
+              password: password,
+            );
+          },
+        ),
       ),
     );
   }
@@ -26,11 +93,11 @@ class _SortButton extends StatelessWidget {
     return PopupMenuButton<String>(
       icon: Icon(Icons.sort_rounded),
       onSelected: (String orderBy) {
-        final state = context.read<_StateChangeNotifier>();
+        final state = context.read<_SortChangeNotifier>();
         state.orderBy = orderBy;
       },
       itemBuilder: (BuildContext context) {
-        final state = context.read<_StateChangeNotifier>();
+        final state = context.read<_SortChangeNotifier>();
         final List<String> choices = ['name', 'year'];
         return <PopupMenuItem<String>>[
           for (final choice in choices)
@@ -62,7 +129,7 @@ class _SortButton extends StatelessWidget {
   }
 }
 
-class _StateChangeNotifier extends ChangeNotifier {
+class _SortChangeNotifier with ChangeNotifier {
   String _orderBy = 'year';
 
   String get orderBy => _orderBy;
@@ -78,8 +145,12 @@ class ProgrammingLanguageModel {
   final int year;
   final String logoURL;
 
-  ProgrammingLanguageModel(
-      {this.name, this.designers, this.year, this.logoURL});
+  ProgrammingLanguageModel({
+    this.name,
+    this.designers,
+    this.year,
+    this.logoURL,
+  });
 
   factory ProgrammingLanguageModel.fromDocument(DocumentSnapshot snapshot) {
     String name;
@@ -109,7 +180,7 @@ class ProgrammingLanguageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final orderBy = context.watch<_StateChangeNotifier>();
+    final orderBy = context.watch<_SortChangeNotifier>();
     final collectionRef = FirebaseFirestore.instance.collection('languages');
     final snapshotStream = collectionRef.orderBy(orderBy.orderBy).snapshots();
 
