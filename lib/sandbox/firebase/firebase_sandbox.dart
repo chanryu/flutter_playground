@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -7,70 +5,33 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'sign_in_form.dart';
 
-class FirebaseSandbox extends StatefulWidget {
-  @override
-  _FirebaseSandboxState createState() => _FirebaseSandboxState();
-}
-
-class _FirebaseSandboxState extends State<FirebaseSandbox> {
-  _FirebaseSandboxState() {
-    final authStream = FirebaseAuth.instance.authStateChanges();
-    _authSubscription = authStream.listen((User user) {
-      setState(() {
-        _currentUser = user;
-      });
-    });
-  }
-
-  StreamSubscription<User> _authSubscription;
-  User _currentUser;
-
-  bool isUserLoggedIn() {
-    return _currentUser != null;
-  }
-
+class FirebaseSandbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider<User>.value(
-          value: _currentUser,
+        ChangeNotifierProvider<_AuthState>(
+          create: (_) => _AuthState(),
         ),
-        ChangeNotifierProvider<_SortChangeNotifier>(
-          create: (_) => _SortChangeNotifier(),
+        ChangeNotifierProvider<_OrderBy>(
+          create: (_) => _OrderBy(),
         ),
       ],
-      child: _buildScaffold(),
+      child: Builder(
+        builder: (context) {
+          final authState = Provider.of<_AuthState>(context);
+          if (authState.isUserLoggedIn()) {
+            return _buildMainScaffold();
+          }
+          return _buildSignInScaffold();
+        },
+      ),
     );
   }
 
-  @override
-  void dispose() {
-    _authSubscription.cancel();
-    super.dispose();
-  }
-
-  Widget _buildScaffold() {
-    final appBarTitle = Text('Firebase Sandbox');
-
-    if (isUserLoggedIn()) {
-      return Scaffold(
-        appBar: AppBar(
-          title: appBarTitle,
-          actions: [_SortButton()],
-        ),
-        body: ProgrammingLanguageList(),
-        floatingActionButton: FloatingActionButton(
-          child: Icon(Icons.logout),
-          onPressed: () {
-            FirebaseAuth.instance.signOut();
-          },
-        ),
-      );
-    }
-
+  Widget _buildSignInScaffold() {
     return Scaffold(
-      appBar: AppBar(title: appBarTitle),
+      appBar: AppBar(title: Text('Firebase Sandbox')),
       body: Container(
         margin: EdgeInsets.all(16),
         alignment: Alignment.center,
@@ -85,6 +46,22 @@ class _FirebaseSandboxState extends State<FirebaseSandbox> {
       ),
     );
   }
+
+  Widget _buildMainScaffold() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Programing Languages'),
+        actions: [_SortButton()],
+      ),
+      body: ProgrammingLanguageList(),
+      floatingActionButton: FloatingActionButton(
+        child: Icon(Icons.logout),
+        onPressed: () {
+          FirebaseAuth.instance.signOut();
+        },
+      ),
+    );
+  }
 }
 
 class _SortButton extends StatelessWidget {
@@ -93,11 +70,11 @@ class _SortButton extends StatelessWidget {
     return PopupMenuButton<String>(
       icon: Icon(Icons.sort_rounded),
       onSelected: (String orderBy) {
-        final state = context.read<_SortChangeNotifier>();
-        state.orderBy = orderBy;
+        final state = context.read<_OrderBy>();
+        state.value = orderBy;
       },
       itemBuilder: (BuildContext context) {
-        final state = context.read<_SortChangeNotifier>();
+        final orderBy = context.read<_OrderBy>();
         final List<String> choices = ['name', 'year'];
         return <PopupMenuItem<String>>[
           for (final choice in choices)
@@ -106,7 +83,7 @@ class _SortButton extends StatelessWidget {
               child: Row(
                 children: [
                   Opacity(
-                    opacity: state.orderBy == choice ? 1 : 0,
+                    opacity: orderBy.value == choice ? 1 : 0,
                     child: Icon(
                       Icons.check_rounded,
                       color: Colors.black87,
@@ -116,7 +93,7 @@ class _SortButton extends StatelessWidget {
                   Text(
                     choice[0].toUpperCase() + choice.substring(1), // Captialize
                     style: TextStyle(
-                        fontWeight: state.orderBy == choice
+                        fontWeight: orderBy.value == choice
                             ? FontWeight.bold
                             : FontWeight.normal),
                   ),
@@ -129,14 +106,29 @@ class _SortButton extends StatelessWidget {
   }
 }
 
-class _SortChangeNotifier with ChangeNotifier {
-  String _orderBy = 'year';
+class _OrderBy with ChangeNotifier {
+  String _value = 'year';
 
-  String get orderBy => _orderBy;
-  set orderBy(String orderBy) {
-    _orderBy = orderBy;
+  String get value => _value;
+  set value(String value) {
+    _value = value;
     notifyListeners();
   }
+}
+
+class _AuthState with ChangeNotifier {
+  _AuthState() {
+    FirebaseAuth.instance.authStateChanges().listen((User user) {
+      _currentUser = user;
+      notifyListeners();
+    });
+  }
+
+  bool isUserLoggedIn() => _currentUser != null;
+
+  User get currentUser => _currentUser;
+
+  User _currentUser;
 }
 
 class ProgrammingLanguageModel {
@@ -180,15 +172,15 @@ class ProgrammingLanguageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final orderBy = context.watch<_SortChangeNotifier>();
+    final orderBy = context.watch<_OrderBy>();
     final collectionRef = FirebaseFirestore.instance.collection('languages');
-    final snapshotStream = collectionRef.orderBy(orderBy.orderBy).snapshots();
+    final snapshotStream = collectionRef.orderBy(orderBy.value).snapshots();
 
-    return StreamBuilder(
+    return StreamBuilder<QuerySnapshot>(
       stream: snapshotStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return Center(child: Text('Something wrong...'));
+          return Center(child: Text(snapshot.error.toString()));
         }
 
         if (!snapshot.hasData) {
